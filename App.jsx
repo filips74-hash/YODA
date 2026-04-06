@@ -7,6 +7,7 @@ const FIELD_IDS = {
   ARTIST_PHOTO: "fldB5GD09PckzbfpS",
   KEY_ART: "fldNqudSaYc5rAetC",
   VENUE_PHOTO: "fldjCIFCybkLdJKhq",
+  DUE: "fld3nskHsRUiyrLI5",
 };
 
 const C = {
@@ -71,20 +72,27 @@ function getArtistName(fields) {
 }
 
 function processRecord(rec) {
-  // Handles the flat shape returned by /api/posts:
-  // { id, copy, label, status, type, platforms, due, artistPhoto, keyArt, venuePhoto }
-  const scheduledDate = rec.due ? (() => { const d = new Date(rec.due); return isNaN(d) ? null : d; })() : null;
+  const f = rec.fields || {};
+  
+  const scheduledDate = (() => {
+    const v = f[FIELD_IDS.DUE] || f["Due Date"] || f["Scheduled Date"] || f["Post Date"];
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d) ? null : d;
+  })();
+
   return {
-    id:            rec.id,
+    id:          rec.id,
     scheduledDate,
-    artistName:    rec.artistName || rec.label || rec.copy?.slice(0, 30) || "—",
-    venue:         rec.venue || "",
-    content:       rec.copy || "",
-    status:        (rec.status || "").toLowerCase().trim(),
-    platforms:     Array.isArray(rec.platforms) ? rec.platforms : [],
-    keyArt:        rec.keyArt   || null,
-    artistPhoto:   rec.artistPhoto || null,
-    venuePhoto:    rec.venuePhoto  || null,
+    artistName:  getArtistName(f),
+    venue:       f["Venue"] || f["venue"] || "",
+    content:     f[FIELD_IDS.POST_COPY] || f["POST CONTENT"] || "",
+    status:      (f[FIELD_IDS.STATUS] || f["Post Status"] || "").toLowerCase().trim(),
+    platforms:   Array.isArray(f[FIELD_IDS.PLATFORMS]) ? f[FIELD_IDS.PLATFORMS]
+               : Array.isArray(f["Platforms"]) ? f["Platforms"] : [],
+    keyArt:      getAttachment(f, FIELD_IDS.KEY_ART),
+    artistPhoto: getAttachment(f, FIELD_IDS.ARTIST_PHOTO),
+    venuePhoto:  getAttachment(f, FIELD_IDS.VENUE_PHOTO),
   };
 }
 
@@ -354,7 +362,6 @@ function PosterModal({ rec, onClose }) {
     </div>
   );
 }
-
 // ─── TIMELINE VIEW ──────────────────────────────────────────────────────────
 
 function TimelineView({ byDate, onPoster }) {
@@ -578,7 +585,7 @@ export default function TADSocialDashboard() {
     fetch("/api/posts")
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(data => {
-        const arr = Array.isArray(data) ? data : (data.posts || data.records || []);
+        const arr = Array.isArray(data) ? data : (data.records || []);
         const processed = arr.map(processRecord).sort((a, b) => {
           if (!a.scheduledDate && !b.scheduledDate) return 0;
           if (!a.scheduledDate) return 1;
