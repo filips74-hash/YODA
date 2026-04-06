@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
   const params = new URLSearchParams();
   ALL_FIELDS.forEach(f => params.append("fields[]", f));
-  params.set("filterByFormula", "NOT({Post Copy}='')");
+  // params.set("filterByFormula", "NOT({Post Copy}='')");
   params.set("sort[0][field]",      F_DUE);
   params.set("sort[0][direction]",  "asc");
   params.set("maxRecords",          "100");
