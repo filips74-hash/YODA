@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 
 const FIELD_IDS = {
-  POST_COPY: "fld7Z2psB9gGg51kh",
-  STATUS: "fldZXdXPuF2EkrmWY",
-  PLATFORMS: "fldJyU1eS53pRyMwX",
+  POST_COPY:    "fld7Z2psB9gGg51kh",
+  STATUS:       "fldZXdXPuF2EkrmWY",
+  PLATFORMS:    "fldJyU1eS53pRyMwX",
   ARTIST_PHOTO: "fldB5GD09PckzbfpS",
-  KEY_ART: "fldNqudSaYc5rAetC",
-  VENUE_PHOTO: "fldjCIFCybkLdJKhq",
-  DUE: "fld3nskHsRUiyrLI5",
+  KEY_ART:      "fldNqudSaYc5rAetC",
+  VENUE_PHOTO:  "fldjCIFCybkLdJKhq",
+  DUE:          "fld3nskHsRUiyrLI5",
 };
 
 const C = {
@@ -74,32 +74,35 @@ function getArtistName(fields) {
 function processRecord(rec) {
   const f = rec.fields || {};
 
-  // Safely extract date
+  // Date — read by field ID first, then fall back to name-based scan
   const scheduledDate = (() => {
-    const v = f[FIELD_IDS.DUE] || f["Due Date"] || f["Scheduled Date"] || f["Post Date"];
+    const v = f[FIELD_IDS.DUE] || f["Due Date"] || f["Scheduled Date"] || f["Post Date"] || f["due"];
     if (!v) return null;
     const d = new Date(v);
     return isNaN(d) ? null : d;
   })();
 
-  // Safely extract status (Airtable sends objects for Select fields)
+  // Status — Airtable single-select comes as { name: "..." } or plain string
   const rawStatus = f[FIELD_IDS.STATUS] || f["Post Status"] || f["Status"] || "";
-  const statusString = typeof rawStatus === "object" ? (rawStatus.name || "") : String(rawStatus);
+  const status = (typeof rawStatus === "object" ? (rawStatus?.name || "") : String(rawStatus)).toLowerCase().trim();
 
-  // Safely extract platforms (Airtable sends arrays of objects for Multiple Selects)
+  // Platforms — Airtable multi-select comes as [{ name: "..." }] or ["..."]
   const rawPlatforms = f[FIELD_IDS.PLATFORMS] || f["Platforms"] || [];
-  const platformsArray = Array.isArray(rawPlatforms)
-    ? rawPlatforms.map(p => typeof p === "object" ? p.name : p)
+  const platforms = Array.isArray(rawPlatforms)
+    ? rawPlatforms.map(p => (typeof p === "object" ? p?.name : p)).filter(Boolean)
     : [];
 
+  // Content
+  const content = f[FIELD_IDS.POST_COPY] || f["POST CONTENT"] || f["Post Copy"] || f["Post Content"] || "";
+
   return {
-    id:          rec.id,
+    id: rec.id,
     scheduledDate,
-    artistName:  getArtistName(f),
-    venue:       f["Venue"] || f["venue"] || "",
-    content:     f[FIELD_IDS.POST_COPY] || f["POST CONTENT"] || f["Post Copy"] || "",
-    status:      statusString.toLowerCase().trim(),
-    platforms:   platformsArray,
+    artistName: getArtistName(f),
+    venue: f["Venue"] || f["venue"] || "",
+    content,
+    status,
+    platforms,
     keyArt:      getAttachment(f, FIELD_IDS.KEY_ART),
     artistPhoto: getAttachment(f, FIELD_IDS.ARTIST_PHOTO),
     venuePhoto:  getAttachment(f, FIELD_IDS.VENUE_PHOTO),
@@ -596,7 +599,7 @@ export default function TADSocialDashboard() {
     fetch("/api/posts")
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(data => {
-        const arr = Array.isArray(data) ? data : (data.records || []);
+        const arr = Array.isArray(data) ? data : (data.posts || data.records || []);
         const processed = arr.map(processRecord).sort((a, b) => {
           if (!a.scheduledDate && !b.scheduledDate) return 0;
           if (!a.scheduledDate) return 1;
