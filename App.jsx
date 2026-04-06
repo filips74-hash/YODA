@@ -73,7 +73,8 @@ function getArtistName(fields) {
 
 function processRecord(rec) {
   const f = rec.fields || {};
-  
+
+  // Safely extract date
   const scheduledDate = (() => {
     const v = f[FIELD_IDS.DUE] || f["Due Date"] || f["Scheduled Date"] || f["Post Date"];
     if (!v) return null;
@@ -81,15 +82,24 @@ function processRecord(rec) {
     return isNaN(d) ? null : d;
   })();
 
+  // Safely extract status (Airtable sends objects for Select fields)
+  const rawStatus = f[FIELD_IDS.STATUS] || f["Post Status"] || f["Status"] || "";
+  const statusString = typeof rawStatus === "object" ? (rawStatus.name || "") : String(rawStatus);
+
+  // Safely extract platforms (Airtable sends arrays of objects for Multiple Selects)
+  const rawPlatforms = f[FIELD_IDS.PLATFORMS] || f["Platforms"] || [];
+  const platformsArray = Array.isArray(rawPlatforms)
+    ? rawPlatforms.map(p => typeof p === "object" ? p.name : p)
+    : [];
+
   return {
     id:          rec.id,
     scheduledDate,
     artistName:  getArtistName(f),
     venue:       f["Venue"] || f["venue"] || "",
-    content:     f[FIELD_IDS.POST_COPY] || f["POST CONTENT"] || "",
-    status:      (f[FIELD_IDS.STATUS] || f["Post Status"] || "").toLowerCase().trim(),
-    platforms:   Array.isArray(f[FIELD_IDS.PLATFORMS]) ? f[FIELD_IDS.PLATFORMS]
-               : Array.isArray(f["Platforms"]) ? f["Platforms"] : [],
+    content:     f[FIELD_IDS.POST_COPY] || f["POST CONTENT"] || f["Post Copy"] || "",
+    status:      statusString.toLowerCase().trim(),
+    platforms:   platformsArray,
     keyArt:      getAttachment(f, FIELD_IDS.KEY_ART),
     artistPhoto: getAttachment(f, FIELD_IDS.ARTIST_PHOTO),
     venuePhoto:  getAttachment(f, FIELD_IDS.VENUE_PHOTO),
@@ -362,6 +372,7 @@ function PosterModal({ rec, onClose }) {
     </div>
   );
 }
+
 // ─── TIMELINE VIEW ──────────────────────────────────────────────────────────
 
 function TimelineView({ byDate, onPoster }) {
