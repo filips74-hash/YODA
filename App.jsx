@@ -62,7 +62,7 @@ function findScheduledDate(fields) {
 }
 
 function getArtistName(fields) {
-  for (const key of ["Artist Name (Text)","Artists","Artist","ARTIST","ARTISTS 2","Artist Name","Name"]) {
+  for (const key of ["Artists","Artist","ARTIST","ARTISTS 2","Artist Name","Name"]) {
     const v = fields[key];
     if (!v) continue;
     if (Array.isArray(v)) return v[0]?.name || v[0]?.value || v[0] || "";
@@ -76,7 +76,7 @@ function processRecord(rec) {
 
   // Date — read by field ID first, then fall back to name-based scan
   const scheduledDate = (() => {
-    const v = f["Post Date:"] || f[FIELD_IDS.DUE] || f["Due Date"] || f["Scheduled Date"] || f["Post Date"] || f["due"];
+    const v = f[FIELD_IDS.DUE] || f["Due Date"] || f["Scheduled Date"] || f["Post Date"] || f["due"];
     if (!v) return null;
     const d = new Date(v);
     return isNaN(d) ? null : d;
@@ -87,7 +87,7 @@ function processRecord(rec) {
   const status = (typeof rawStatus === "object" ? (rawStatus?.name || "") : String(rawStatus)).toLowerCase().trim();
 
   // Platforms — Airtable multi-select comes as [{ name: "..." }] or ["..."]
-  const rawPlatforms = f[FIELD_IDS.PLATFORMS] || f["Platforms Requested:"] || f["Platforms"] || [];
+  const rawPlatforms = f[FIELD_IDS.PLATFORMS] || f["Platforms"] || [];
   const platforms = Array.isArray(rawPlatforms)
     ? rawPlatforms.map(p => (typeof p === "object" ? p?.name : p)).filter(Boolean)
     : [];
